@@ -57,19 +57,7 @@ body {
 }
 .folder:hover .hide-x { visibility: visible; }
 .folder .hide-x:hover { color: #fff; }
-.sidebar-section { margin-top: auto; }
-.sidebar-section .section-title {
-  font-size: 10px; text-transform: uppercase; letter-spacing: 0.09em;
-  color: #8a8a96; margin-bottom: 4px; padding: 0 10px; font-weight: 700;
-}
-.account {
-  display: flex; align-items: center; gap: 8px;
-  padding: 5px 10px; border-radius: 8px; font-size: 12px; color: #b9b9c3;
-  cursor: default;
-}
-.account:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
-.account .badge { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.account .acct-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#settingsBtn { margin-top: auto; }
 #settingsBtn {
   margin-top: auto;
   background: rgba(255, 255, 255, 0.08); border: none; color: #d5d5de;
@@ -179,9 +167,25 @@ body {
 }
 .cbody:focus { border-color: var(--accent); }
 .cbody:empty::before { content: attr(data-placeholder); color: var(--muted); }
-.compose-bar { display: flex; align-items: center; gap: 8px; }
-.compose-bar .compose { width: auto; padding: 9px 24px; }
-#aiStatus { color: var(--muted); font-size: 12px; margin-right: auto; }
+/* Full-screen composer */
+#composer {
+  flex: 1; display: flex; flex-direction: column;
+  background: var(--panel); overflow-y: auto;
+}
+.compose-title { font-weight: 800; font-size: 16px; letter-spacing: -0.2px; }
+#composer .reader-actions .compose { width: auto; padding: 9px 26px; }
+.compose-fields {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 20px 32px; max-width: 860px; width: 100%; margin: 0 auto; flex: 1;
+}
+.compose-fields input {
+  border: none; border-bottom: 1px solid var(--line);
+  padding: 10px 2px; font-size: 15px; outline: none; background: none;
+}
+.compose-fields input:focus { border-bottom-color: var(--accent); }
+.compose-fields .cbody { flex: 1; min-height: 320px; margin-top: 10px; }
+.compose-foot { display: flex; align-items: baseline; gap: 16px; padding: 10px 0 24px; }
+#aiStatus { color: var(--muted); font-size: 12px; }
 #composeWarnings { font-size: 12px; color: var(--danger); display: flex; flex-direction: column; gap: 2px; font-weight: 500; }
 
 /* Settings */

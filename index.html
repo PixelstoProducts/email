@@ -13,10 +13,6 @@
     <div class="brand">mono<span class="dot">.</span></div>
     <button id="composeBtn" class="compose">+ Compose</button>
     <nav id="folderNav"></nav>
-    <div class="sidebar-section">
-      <div class="section-title">Accounts</div>
-      <div id="accountList"></div>
-    </div>
     <button id="settingsBtn" class="ghost-btn">⚙ Settings</button>
   </aside>
 
@@ -40,24 +36,26 @@
     <div id="readerBody"></div>
   </section>
 
-  <div id="composeModal" class="modal hidden">
-    <div class="modal-card">
-      <div class="modal-head">
-        <span>New message</span>
-        <button id="closeCompose" class="ghost-btn">&times;</button>
+  <section id="composer" class="hidden">
+    <div class="reader-head">
+      <button id="closeCompose" class="ghost-btn">&larr; Back</button>
+      <span class="compose-title">New message</span>
+      <div class="reader-actions">
+        <button id="aiBtn" class="ghost-btn">✦ AI refine</button>
+        <button id="attachBtn" class="ghost-btn">Attach</button>
+        <button id="sendBtn" class="compose">Send</button>
       </div>
+    </div>
+    <div class="compose-fields">
       <input id="cTo" placeholder="To">
       <input id="cSubject" placeholder="Subject">
       <div id="cBody" class="cbody" contenteditable="true" data-placeholder="Write here — select text to refine with AI, or leave unselected to rewrite the whole message"></div>
-      <div class="compose-bar">
-        <button id="aiBtn" class="ghost-btn">AI refine</button>
-        <button id="attachBtn" class="ghost-btn">Attach</button>
+      <div class="compose-foot">
         <span id="aiStatus"></span>
-        <button id="sendBtn" class="compose">Send</button>
+        <div id="composeWarnings"></div>
       </div>
-      <div id="composeWarnings"></div>
     </div>
-  </div>
+  </section>
 
   <div id="settingsModal" class="modal hidden">
     <div class="modal-card">

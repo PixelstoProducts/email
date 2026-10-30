@@ -102,19 +102,6 @@ function toast(msg, undoFn) {
 }
 
 /* ---------- Render: sidebar ---------- */
-function renderAccounts() {
-  const el = $('#accountList');
-  if (!el) return;
-  el.innerHTML = '';
-  state.accounts.forEach((a) => {
-    const div = document.createElement('div');
-    div.className = 'account';
-    div.innerHTML = `<span class="badge" style="background:${a.color}"></span><span class="acct-label">${esc(a.label)}</span>`;
-    div.title = `${a.label} (${a.type}) — manage in Settings`;
-    el.appendChild(div);
-  });
-}
-
 function renderFolders() {
   const nav = $('#folderNav');
   nav.innerHTML = '';
@@ -332,7 +319,9 @@ function openCompose(to = '', subject = '') {
   $('#composeWarnings').innerHTML = '';
   $('#aiStatus').textContent = '';
   state._attachmentAdded = false;
-  $('#composeModal').classList.remove('hidden');
+  $('#main').classList.add('hidden');
+  $('#reader').classList.add('hidden');
+  $('#composer').classList.remove('hidden');
   $('#cTo').focus();
 }
 function openComposeReply() {
@@ -341,7 +330,11 @@ function openComposeReply() {
   const subject = e.subject.startsWith('Re:') ? e.subject : `Re: ${e.subject}`;
   openCompose(e.sender, subject);
 }
-function closeCompose() { $('#composeModal').classList.add('hidden'); }
+function closeCompose() {
+  $('#composer').classList.add('hidden');
+  if (state.readerId) $('#reader').classList.remove('hidden');
+  else $('#main').classList.remove('hidden');
+}
 
 function hasSignature(text) {
   return /(best regards|kind regards|regards|cheers|sincerely|--\s*\n|\n[A-Z][a-z]+ [A-Z][a-z]+\s*$)/m.test(text);
@@ -503,7 +496,7 @@ function renderSettings() {
 }
 
 /* ---------- Wire up ---------- */
-function renderAll() { renderFolders(); renderAccounts(); renderList(); }
+function renderAll() { renderFolders(); renderList(); }
 
 $('#composeBtn').onclick = () => openCompose();
 $('#closeCompose').onclick = closeCompose;
