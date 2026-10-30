@@ -1,78 +1,97 @@
 # Requirements synthesis — mono. email client prototype
 
-Purpose: hand-off document for a design review / alternative proposal.
-Scope: a minimal, unified, multi-account web email client (prototype, static HTML/CSS/JS).
+Purpose: hand-off brief for a design review / alternative proposal. Section 1 reproduces the original product requirements in full detail; section 2 maps them to what the prototype implements today.
 
-## 1. Original requirements (from product discussion)
+---
 
-### Folders & inbox management
-- Hide folders **totally** (not in a dropdown) — e.g. Archive, Drafts, Scheduled are noise
-- Main folders: Inbox, Sent/Outbox, Junk, (Trash optional — user later said Trash should not exist)
-- Drafts / scheduled sending could live in the same folder as sent, distinguished by **tags/badges** rather than folders
-- Delete should be a single action from the inbox (native-provider behavior), with a short undo window (~10 s, ⌘Z) instead of a separate Trash step
-- Follow-up: an email can **reappear automatically** if no answer arrives
+## 1. Original requirements (full detail)
 
-### Input: keyboard & mobile
-- Shortcuts: **Backspace** = delete, **Enter** = open/read, **arrows** = next/previous, **Space** = reply
-- Mobile: **swipe left = delete**, **swipe right = move to folder**, tap = read; no multi-option slide menus
+### 1.1 Folders & noise
+- Most email clients copy **all** folders from the native provider — it is noise. The user wants a way to **hide folders totally** (not collapse them into a dropdown). Example: they don't use Archive.
+- Main folders they actually use: **Inbox** (receives), **Sent/Outbox** (what they sent), **Junk/spam**, and delete.
+- Draft and scheduled-send could live **in the same folder as Sent**, distinguished by **tags** — "sent" as a folder name may not even be the right term.
+- **Delete should be a single action**: deleting from the inbox deletes directly (like the native provider), with **⌘Z undo within ~10 seconds** if it was a mistake. A separate Trash folder + second delete action is redundant.
 
-### AI (on-demand only, never automatic)
-- Summarize / expand / explain — typed **inline in the compose body**: select a sentence to refine it, or nothing selected = rewrite the whole message (no separate AI field)
-- Signature-aware: do not append "best regards" + name if a signature already exists
-- Flag when the body mentions an attachment but none is attached
-- Settings: option to plug in an **API key of any model** to do all AI work
+### 1.2 Follow-ups
+- An email should be able to **reappear for follow-up if no answer is received**.
 
-### Inbox-zero experience & UI taste
-- Empty inbox shows a **daily recap** (sent today, follow-ups pending, email-related tasks) — not a background image
-- Smart button to **preselect garbage** for review (titles visible, unselectable) before deletion
-- Modern, minimal, no badges/categories clutter (promotions, social, etc.) — everything at the same level; AI should learn what the user opens vs. deletes over time
-- Know when your email is **opened** (read receipts)
-- Sender reputation / spam-risk score with AI recommendations (not yet implemented)
+### 1.3 Keyboard shortcuts (essential)
+- **Backspace** = delete
+- **Enter** = read/open
+- **Arrows** = next / previous
+- **Space** = reply
 
-### Accounts & notifications
-- Unified inbox over **3 personal Gmail + 1 professional SMTP (Hostinger)**
-- **Different notification sounds per account**, set in settings
+### 1.4 Mobile gestures
+- No slide menus revealing multiple options.
+- **Swipe left = delete**, **swipe right = move to a folder**, **tap = read**.
 
-## 2. What is implemented so far (prototype in this repo)
+### 1.5 Inside an email — AI (on user decision only, never automatic)
+- AI synthesis is nice **only on demand**: when the email is too long, or when the user doesn't understand a term and wants an **explanation**. So AI = **summarizing, expanding, synthesizing, explaining**.
+- **Drafting with AI**: from scratch with the context of the received email, or from a few typed words.
+- Most tools have a separate AI field — the user prefers to **type in the email body itself**, then **select a specific sentence to refine with AI**; if nothing is selected, the **whole message** is rewritten.
+- **Signature awareness**: most AI appends "best regards" + name, but that's usually part of the signature → duplicated. Rule: **if a signature exists, the closing words must not be added**.
+- **Attachment intelligence**: if the body mentions an attachment but none is attached, it should **flag it**.
+- **Custom model**: AI embedded in the tool is fine, but settings should allow associating an **API key of any model** to do all the AI work.
+
+### 1.6 Inbox-zero experience
+- User likes an **empty inbox**. Most clients show a decorative background image when empty — useless. Better: a **recap of the day** — which emails were sent, what follow-ups are pending, what email-related tasks could be done.
+
+### 1.7 UI taste
+- **Modern but simple, minimalist** (liked Sparrow's vibe). But often too many badges/categories (promotion, social, etc.) — not needed. Everything received should be **at the same level**; over time **AI should learn what the user opens vs. what they delete**.
+- A **smart button could preselect all garbage emails** for review — with titles visible so the user can unselect ones they want to read; selected ones get deleted.
+
+### 1.8 Trust & deliverability
+- Know **when your email is opened** (read receipts) — nice to have.
+- See if **email notoriety/deliverability is clean or considered spam**, with **AI recommendations to improve the score**.
+
+### 1.9 Accounts & notifications
+- **3 personal emails (Gmail, easy login) + 1 professional (SMTP via Hostinger)**, all in the **same unified inbox**.
+- **Notification sound can differ between personal and pro** — set in settings.
+
+---
+
+## 2. What the prototype implements today
 
 | Requirement | Status | Where |
 |---|---|---|
-| Hide folders totally | ✅ hover × on folder, persisted (localStorage) | app.js `hideFolder` |
-| Trash removed, permanent delete + 10 s undo | ✅ Backspace/swipe-left/w button delete permanently, toast with Undo | app.js `deleteEmail` |
-| Drafts/scheduled in Outbox with badges | ✅ Sent renamed **Outbox**; pill badges: Draft, Outbox, Follow-up, Opened | app.js `renderList`, styles.css `.badge-tag` |
-| Automatic follow-up | ✅ every sent email arms a follow-up (⏰ badge + recap), no manual button | app.js `sendEmail` |
+| Hide folders totally | ✅ hover × on folder, persisted in localStorage (Archive/Drafts/Scheduled/Trash hidden by default) | app.js `hideFolder` |
+| Draft/scheduled in Outbox with tags | ✅ "Sent" renamed **Outbox**; pill badges Draft / Outbox / Follow-up / Opened; Save draft button; clicking a draft reopens it | app.js `renderList`, `saveDraft` |
+| Single-action delete + 10 s undo, no Trash | ✅ Backspace / swipe-left / Delete button remove permanently; undo toast with ⌘Z hint; Trash hidden | app.js `deleteEmail` |
+| Automatic follow-up reappear | ✅ every sent email arms a follow-up automatically (⏰ badge + recap entry); no manual button | app.js `sendEmail` |
 | Keyboard shortcuts | ✅ Backspace / Enter / arrows / Space / Esc | app.js keydown handler |
-| Mobile swipes | ✅ swipe left delete, swipe right move, tap read | app.js `bindSwipe` |
-| Inline AI compose | ✅ full-screen composer; selection → refine selection, none → rewrite all (simulated) | app.js `runAIRefine` |
-| Signature-aware AI | ✅ regex detects signature, avoids duplicate closing | app.js `hasSignature` |
+| Mobile gestures | ✅ swipe left delete, swipe right move, tap read | app.js `bindSwipe` |
+| On-demand AI in reader | ⚠️ not yet (compose only) | — |
+| Inline AI compose (selection vs. whole message) | ✅ full-screen composer; selection → refine selection, none → rewrite all (simulated) | app.js `runAIRefine` |
+| AI drafting from few words / thread context | ⚠️ reply pre-fills To + "Re:" subject; free-text drafting simulated | app.js `openComposeReply` |
+| Signature-aware AI | ✅ detects signature, won't duplicate closing | app.js `hasSignature` |
 | Attachment-mention flag | ✅ red warning in composer | app.js `checkWarnings` |
-| Custom AI API key in settings | ✅ settings field (UI only; AI call is simulated) | app.js `renderSettings` |
-| Empty-inbox daily recap | ✅ sent today / follow-ups / tasks cards | app.js `renderRecap` |
-| AI garbage preselect | ✅ ✦ button in Inbox toolbar preselects garbage rows; Backspace deletes | app.js `preselectGarbage` |
-| Read receipts | ✅ 👁 Opened badge on sent mail (toggle in settings) | app.js `openReader` |
-| Multi-account unified inbox | ✅ 4 seeded accounts (3 gmail + 1 smtp), per-account color on rows; add/remove accounts in Settings (persisted) | app.js accounts |
-| Per-account notification sounds | ✅ dropdown per account in Settings (UI only, no audio) | app.js `renderSettings` |
-| Full-screen reply/compose | ✅ dedicated composer view, not a modal; Reply button + Enter/Space in reader | index.html `#composer` |
-| Settings at sidebar bottom, toggle switches, fixed select caret padding | ✅ | styles.css |
-| Full-width rows (no cards) | ✅ | styles.css `.email-row` |
-| Dark punchy sidebar, indigo accent | ✅ | styles.css |
-| Persistence + reset | ✅ emails/accounts/hidden folders in localStorage; "Reset inbox" in Settings | app.js |
+| Custom AI API key in settings | ✅ settings field (UI only — AI call is simulated) | app.js `renderSettings` |
+| Empty-inbox daily recap | ✅ cards: sent today, follow-ups awaiting answer, email tasks | app.js `renderRecap` |
+| Minimalist UI, no category clutter | ✅ dark sidebar, indigo accent, full-width rows (no cards), no promo/social tabs | styles.css |
+| AI garbage preselect with review | ✅ ✦ button in Inbox toolbar preselects garbage rows (visible, unselectable); Backspace deletes | app.js `preselectGarbage` |
+| Learning from open/delete | ❌ garbage flags are static seed data; no learning yet | — |
+| Read receipts | ✅ 👁 Opened badge on sent mail, toggle in settings | app.js `openReader` |
+| Sender reputation / spam score + AI tips | ❌ not implemented | — |
+| Unified inbox: 3× Gmail + 1× SMTP (Hostinger) | ✅ 4 seeded accounts, per-account color on rows; add/remove accounts in Settings (persisted) | app.js accounts |
+| Per-account notification sounds | ✅ dropdown per account in Settings (UI only, no audio playback) | app.js `renderSettings` |
+| Full-screen reply/compose (not modal) | ✅ dedicated composer view; Reply button + Enter/Space in reader | index.html `#composer` |
+| Settings pinned at sidebar bottom, toggle switches, fixed select caret padding | ✅ | styles.css |
+| Persistence + demo reset | ✅ emails/accounts/hidden folders in localStorage; "Reset inbox" button in Settings | app.js |
 
-## 3. Known gaps / not implemented
+## 3. Known gaps
 
-- Real Gmail OAuth and SMTP/Hostinger connections (seed data only)
-- Real AI calls behind the configured API key (currently simulated)
+- Real Gmail OAuth login and SMTP/Hostinger sending (seed data only)
+- Real AI inference behind the configured API key (currently simulated)
 - Actual notification sounds (settings only)
-- Swipe-right currently moves to the first non-current folder — no folder picker
-- Sender reputation / spam score with AI recommendations
-- Learning model (open vs. delete) — garbage flag is static seed data
-- No search, no threading, no attachments upload (attach is a stub)
-- Undo is toast-only (10 s); ⌘Z label is informational, not wired globally
+- Swipe-right moves to the first non-current folder — no folder picker
+- No learning model (open vs. delete); garbage detection is static
+- No sender reputation / spam score
+- No search, threading, real attachment upload, global ⌘Z wiring (undo is toast-only)
 
 ## 4. Open design questions for the review
 
-1. Is a single global compose/reader/composer full-screen flow right, or should reader+list stay side-by-side on wide screens?
-2. Should swipe-right open a folder picker (given folders can be hidden)?
-3. Where should the ✦ AI actions live in the reader (summarize/explain incoming mail)?
-4. Badge system: keep pills in the row meta, or move status into the subject line?
-5. Account switcher: keep accounts out of the nav entirely, or a tiny avatar menu?
+1. Reader layout: full-screen takeover (current) vs. list + reader side-by-side on wide screens?
+2. Should swipe-right open a folder picker, given folders can be hidden entirely?
+3. Where do ✦ AI actions (summarize / explain / expand) belong in the reader view?
+4. Badges: keep as pills in the row meta (current) or integrate status into the subject line?
+5. Account switching: keep accounts out of the nav entirely (current) or a minimal avatar menu?
