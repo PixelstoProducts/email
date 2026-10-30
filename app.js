@@ -11,7 +11,7 @@ const ACCOUNTS_KEY = 'mono.accounts';
 const EMAILS_KEY = 'mono.emails';
 const HIDDEN_FOLDERS_KEY = 'mono.hiddenFolders';
 
-const DEFAULT_FOLDERS = ['Inbox', 'Sent', 'Junk'];
+const DEFAULT_FOLDERS = ['Inbox', 'Outbox', 'Junk'];
 
 const state = {
   accounts: loadAccounts(),
@@ -53,7 +53,7 @@ function seedEmails() {
   const mk = (id, account, folder, sender, subject, snippet, hoursAgo, opts = {}) => ({
     id, account, folder, sender, subject, snippet,
     date: new Date(Date.now() - hoursAgo * 3600e3).toISOString(),
-    unread: true, followUp: false, garbage: false, opened: false, ...opts,
+    unread: true, followUp: false, garbage: false, opened: false, status: null, ...opts,
   });
   state.emails = loadEmails() || [
     mk('e1', 'pro', 'Inbox', 'Client Corp', 'Contract signature needed', 'Hi, please review the attached contract and sign before Friday…', 1),
@@ -62,8 +62,10 @@ function seedEmails() {
     mk('e4', 'pro', 'Inbox', 'Hostinger Billing', 'Invoice #4821 due', 'Your hosting invoice is now available in your account.', 8),
     mk('e5', 'gmail3', 'Inbox', 'GitHub', '[repo] PR #42 merged', 'Pull request #42 was merged into main.', 10, { garbage: true }),
     mk('e6', 'gmail1', 'Inbox', 'Spaaaaam Offer', 'You won a free cruise!!!', 'Congratulations! Click here to claim your prize.', 12, { garbage: true }),
-    mk('e7', 'pro', 'Sent', 'Client Corp', 'Re: Contract signature needed', 'Thanks, signing today.', 2, { unread: false, followUp: true }),
-    mk('e8', 'gmail1', 'Sent', 'Mom', 'Re: Dinner on Sunday?', 'Yes, see you at noon!', 6, { unread: false }),
+    mk('e7', 'pro', 'Outbox', 'Client Corp', 'Re: Contract signature needed', 'Thanks, signing today.', 2, { unread: false, followUp: true }),
+    mk('e8', 'gmail1', 'Outbox', 'Mom', 'Re: Dinner on Sunday?', 'Yes, see you at noon!', 6, { unread: false }),
+    mk('e11', 'pro', 'Outbox', 'Client Corp', 'Draft: Q3 roadmap proposal', 'Here is the first version of the roadmap…', 4, { unread: false, status: 'draft' }),
+    mk('e12', 'gmail1', 'Outbox', 'Newsletter Weekly', 'Scheduled: weekend edition', 'Scheduled to send Saturday 9:00.', 26, { unread: false, status: 'outbox' }),
     mk('e9', 'gmail2', 'Junk', 'Casino Ads', 'Play now and win big', 'Limited time offer.', 20),
   ];
   saveEmails();
@@ -162,12 +164,18 @@ function renderList() {
     const row = document.createElement('div');
     row.className = 'email-row' + (e.unread ? ' unread' : '') + (state.selectedId === e.id || e._preselected ? ' selected' : '');
     const acc = accountById(e.account);
+    const badges = [
+      e.status === 'draft' ? '<span class="badge-tag badge-draft">Draft</span>' : '',
+      e.status === 'outbox' ? '<span class="badge-tag badge-outbox">Outbox</span>' : '',
+      e.followUp ? '<span class="badge-tag badge-followup">⏰ Follow-up</span>' : '',
+      e.opened ? '<span class="badge-tag badge-opened">👁 Opened</span>' : '',
+    ].join(' ');
     row.innerHTML = `
       <span class="sender">${esc(e.sender)}</span>
       <span class="snippet"><strong style="font-weight:inherit">${esc(e.subject)}</strong> — ${esc(e.snippet)}</span>
-      <span class="meta">${fmtDate(e.date)}<br><span class="flags">${e.followUp ? '<span class="followup-tag">⏰ follow-up</span> ' : ''}${e.opened ? '👁 opened' : ''}${acc ? `<br><span style="color:${acc.color}">${esc(acc.label)}</span>` : ''}</span></span>`;
+      <span class="meta">${fmtDate(e.date)}<br><span class="flags">${badges}${acc ? `<br><span style="color:${acc.color}">${esc(acc.label)}</span>` : ''}</span></span>`;
     bindSwipe(row, e);
-    row.onclick = () => openReader(e.id);
+    row.onclick = () => e.status === 'draft' ? openDraft(e.id) : openReader(e.id);
     list.appendChild(row);
   });
 }
@@ -182,7 +190,7 @@ function preselectGarbage() {
 /* ---------- Render: empty inbox recap ---------- */
 function renderRecap(container) {
   const today = new Date().toDateString();
-  const sent = state.emails.filter((e) => e.folder === 'Sent' && new Date(e.date).toDateString() === today);
+  const sent = state.emails.filter((e) => e.folder === 'Outbox' && !e.status && new Date(e.date).toDateString() === today);
   const followUps = state.emails.filter((e) => e.followUp);
   const dueToday = state.emails.filter((e) => e.folder === 'Inbox' && /sign|invoice|due|review|reply/i.test(e.subject));
   container.classList.remove('hidden');
@@ -319,6 +327,7 @@ function openCompose(to = '', subject = '') {
   $('#composeWarnings').innerHTML = '';
   $('#aiStatus').textContent = '';
   state._attachmentAdded = false;
+  state._draftId = null;
   $('#main').classList.add('hidden');
   $('#reader').classList.add('hidden');
   $('#composer').classList.remove('hidden');
@@ -379,6 +388,39 @@ function checkWarnings() {
   }
 }
 
+function openDraft(id) {
+  const e = state.emails.find((x) => x.id === id);
+  if (!e) return;
+  openCompose(e.sender, e.subject);
+  $('#cBody').innerText = e.snippet;
+  state._draftId = id;
+}
+
+function saveDraft() {
+  const to = $('#cTo').value.trim();
+  const subject = $('#cSubject').value.trim() || '(no subject)';
+  const account = state.accounts.find((a) => a.id === 'pro') || state.accounts[0];
+  const existing = state._draftId && state.emails.find((x) => x.id === state._draftId);
+  if (existing) {
+    existing.sender = to || existing.sender;
+    existing.subject = subject;
+    existing.snippet = $('#cBody').innerText.slice(0, 80);
+    existing.date = new Date().toISOString();
+  } else {
+    state.emails.unshift({
+      id: 'e' + Date.now(), account: account.id, folder: 'Outbox',
+      sender: to || account.label, subject,
+      snippet: $('#cBody').innerText.slice(0, 80),
+      date: new Date().toISOString(), unread: false, status: 'draft',
+      followUp: false, garbage: false, opened: false,
+    });
+  }
+  saveEmails();
+  closeCompose();
+  renderAll();
+  toast('Draft saved');
+}
+
 function sendEmail() {
   checkWarnings();
   const to = $('#cTo').value.trim();
@@ -386,10 +428,10 @@ function sendEmail() {
   if (!to) { toast('Add a recipient first'); return; }
   const account = state.accounts.find((a) => a.id === 'pro') || state.accounts[0];
   const sent = {
-    id: 'e' + Date.now(), account: account.id, folder: 'Sent',
+    id: 'e' + Date.now(), account: account.id, folder: 'Outbox',
     sender: account.label, subject,
     snippet: $('#cBody').innerText.slice(0, 80),
-    date: new Date().toISOString(), unread: false,
+    date: new Date().toISOString(), unread: false, status: null,
     followUp: true, // automatic: reappears in follow-ups if no answer arrives
     garbage: false, opened: false,
   };
@@ -501,6 +543,7 @@ function renderAll() { renderFolders(); renderList(); }
 $('#composeBtn').onclick = () => openCompose();
 $('#closeCompose').onclick = closeCompose;
 $('#sendBtn').onclick = sendEmail;
+$('#draftBtn').onclick = saveDraft;
 $('#aiBtn').onclick = runAIRefine;
 $('#attachBtn').onclick = () => { state._attachmentAdded = true; $('#composeWarnings').innerHTML = ''; toast('Attachment added'); };
 $('#cBody').addEventListener('input', checkWarnings);
