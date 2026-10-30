@@ -1,18 +1,20 @@
 'use strict';
 
 /* ---------- State ---------- */
-const ACCOUNTS = [
+const DEFAULT_ACCOUNTS = [
   { id: 'gmail1', label: 'perso@gmail.com', type: 'gmail', color: '#4285F4', sound: 'default' },
   { id: 'gmail2', label: 'perso2@gmail.com', type: 'gmail', color: '#34A853', sound: 'default' },
   { id: 'gmail3', label: 'perso3@gmail.com', type: 'gmail', color: '#EA4335', sound: 'default' },
-  { id: 'pro', label: 'me@pro-company.com', type: 'smtp (Hostinger)', color: '#111111', sound: 'pro' },
+  { id: 'pro', label: 'me@pro-company.com', type: 'smtp', color: '#5b5bf0', sound: 'pro' },
 ];
-
-const DEFAULT_FOLDERS = ['Inbox', 'Sent', 'Junk', 'Trash'];
+const ACCOUNTS_KEY = 'mono.accounts';
 const HIDDEN_FOLDERS_KEY = 'mono.hiddenFolders';
 
+const DEFAULT_FOLDERS = ['Inbox', 'Sent', 'Junk'];
+
 const state = {
-  hiddenFolders: JSON.parse(localStorage.getItem(HIDDEN_FOLDERS_KEY) || '["Archive","Drafts","Scheduled"]'),
+  accounts: loadAccounts(),
+  hiddenFolders: JSON.parse(localStorage.getItem(HIDDEN_FOLDERS_KEY) || '["Archive","Drafts","Scheduled","Trash"]'),
   folder: 'Inbox',
   selectedId: null,
   readerId: null,
@@ -23,6 +25,17 @@ const state = {
     readReceipts: true,
   },
 };
+
+function loadAccounts() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(ACCOUNTS_KEY) || 'null');
+    if (Array.isArray(saved) && saved.length) return saved;
+  } catch (e) { /* fall through */ }
+  return DEFAULT_ACCOUNTS;
+}
+function saveAccounts() {
+  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(state.accounts));
+}
 
 function seedEmails() {
   const mk = (id, account, folder, sender, subject, snippet, hoursAgo, opts = {}) => ({
@@ -37,10 +50,9 @@ function seedEmails() {
     mk('e4', 'pro', 'Inbox', 'Hostinger Billing', 'Invoice #4821 due', 'Your hosting invoice is now available in your account.', 8),
     mk('e5', 'gmail3', 'Inbox', 'GitHub', '[repo] PR #42 merged', 'Pull request #42 was merged into main.', 10, { garbage: true }),
     mk('e6', 'gmail1', 'Inbox', 'Spaaaaam Offer', 'You won a free cruise!!!', 'Congratulations! Click here to claim your prize.', 12, { garbage: true }),
-    mk('e7', 'pro', 'Sent', 'Client Corp', 'Re: Contract signature needed', 'Thanks, signing today.', 2, { unread: false }),
+    mk('e7', 'pro', 'Sent', 'Client Corp', 'Re: Contract signature needed', 'Thanks, signing today.', 2, { unread: false, followUp: true }),
     mk('e8', 'gmail1', 'Sent', 'Mom', 'Re: Dinner on Sunday?', 'Yes, see you at noon!', 6, { unread: false }),
     mk('e9', 'gmail2', 'Junk', 'Casino Ads', 'Play now and win big', 'Limited time offer.', 20),
-    mk('e10', 'gmail1', 'Trash', 'Old receipt', 'Your order #991', 'Thanks for your purchase.', 30, { unread: false }),
   ];
 }
 
@@ -51,7 +63,7 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 function visibleFolders() {
   return DEFAULT_FOLDERS.filter((f) => !state.hiddenFolders.includes(f));
 }
-function accountById(id) { return ACCOUNTS.find((a) => a.id === id); }
+function accountById(id) { return state.accounts.find((a) => a.id === id); }
 function fmtDate(iso) {
   const d = new Date(iso);
   const sameDay = d.toDateString() === new Date().toDateString();
@@ -91,7 +103,7 @@ function renderFolders() {
     x.title = `Hide ${f} completely`;
     x.onclick = (ev) => { ev.stopPropagation(); hideFolder(f); };
     div.appendChild(x);
-    div.onclick = () => { state.folder = f; state.readerId = null; renderAll(); };
+    div.onclick = () => { state.folder = f; state.readerId = null; closeReader(); renderAll(); };
     nav.appendChild(div);
   });
 }
@@ -104,18 +116,7 @@ function hideFolder(f) {
   toast(`${f} hidden completely`);
 }
 
-function renderAccounts() {
-  const el = $('#accountList');
-  el.innerHTML = '';
-  ACCOUNTS.forEach((a) => {
-    const div = document.createElement('div');
-    div.className = 'account';
-    div.innerHTML = `<span class="badge" style="background:${a.color}"></span>${esc(a.label)}<span class="type">${esc(a.type)}</span>`;
-    el.appendChild(div);
-  });
-}
-
-/* ---------- Render: list ---------- */
+/* ---------- Render: list (full-width rows, no cards) ---------- */
 function renderList() {
   $('#folderTitle').textContent = state.folder;
   const list = $('#emailList');
@@ -124,14 +125,14 @@ function renderList() {
     .filter((e) => e.folder === state.folder)
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  // Toolbar actions
   const actions = $('#toolbarActions');
   actions.innerHTML = '';
-  if (state.folder === 'Inbox' && items.length > 0) {
+  if (state.folder === 'Inbox' && items.length > 0 && state.settings.garbageDetection) {
     const btn = document.createElement('button');
-    btn.className = 'ghost-btn';
-    btn.textContent = 'Select garbage';
-    btn.title = 'AI preselects likely-garbage emails for review';
+    btn.className = 'ghost-btn ai-btn';
+    btn.innerHTML = '✦';
+    btn.title = 'AI: select likely-garbage emails for review';
+    btn.setAttribute('aria-label', 'Select garbage with AI');
     btn.onclick = preselectGarbage;
     actions.appendChild(btn);
   }
@@ -139,19 +140,19 @@ function renderList() {
   if (items.length === 0) {
     list.innerHTML = '';
     if (state.folder === 'Inbox') renderRecap(empty);
-    else { empty.classList.add('hidden'); }
+    else empty.classList.add('hidden');
     return;
   }
   empty.classList.add('hidden');
   list.innerHTML = '';
   items.forEach((e) => {
     const row = document.createElement('div');
-    row.className = 'email-row' + (e.unread ? ' unread' : '') + (state.selectedId === e.id ? ' selected' : '');
+    row.className = 'email-row' + (e.unread ? ' unread' : '') + (state.selectedId === e.id || e._preselected ? ' selected' : '');
     const acc = accountById(e.account);
     row.innerHTML = `
       <span class="sender">${esc(e.sender)}</span>
       <span class="snippet"><strong style="font-weight:inherit">${esc(e.subject)}</strong> — ${esc(e.snippet)}</span>
-      <span class="meta">${fmtDate(e.date)}<br><span class="flags">${e.followUp ? '<span class="followup-tag">⏰ follow-up</span> ' : ''}${e.opened ? '👁 opened' : ''}<br><span style="color:${acc.color}">${esc(acc.label)}</span></span></span>`;
+      <span class="meta">${fmtDate(e.date)}<br><span class="flags">${e.followUp ? '<span class="followup-tag">⏰ follow-up</span> ' : ''}${e.opened ? '👁 opened' : ''}${acc ? `<br><span style="color:${acc.color}">${esc(acc.label)}</span>` : ''}</span></span>`;
     bindSwipe(row, e);
     row.onclick = () => openReader(e.id);
     list.appendChild(row);
@@ -160,13 +161,9 @@ function renderList() {
 
 function preselectGarbage() {
   const garbage = state.emails.filter((e) => e.folder === 'Inbox' && e.garbage);
-  toast(`AI preselected ${garbage.length} likely-garbage emails — press Backspace to delete them, or click rows to unselect`, null);
-  state.selectedId = null;
-  garbage.forEach((e, i) => { e._preselected = true; });
+  garbage.forEach((e) => { e._preselected = true; });
   renderList();
-  document.querySelectorAll('.email-row').forEach((row, i) => {
-    if (garbage[i]) row.classList.add('selected');
-  });
+  toast(`AI preselected ${garbage.length} likely-garbage emails — press Backspace to delete, or click a row to unselect`);
 }
 
 /* ---------- Render: empty inbox recap ---------- */
@@ -203,7 +200,7 @@ function openReader(id) {
   $('#reader').classList.remove('hidden');
   $('#readerBody').innerHTML = `
     <h1>${esc(e.subject)}</h1>
-    <div class="from">${esc(e.sender)} · ${esc(accountById(e.account).label)} · ${fmtDate(e.date)}</div>
+    <div class="from">${esc(e.sender)} · ${esc(accountById(e.account)?.label || '')} · ${fmtDate(e.date)}</div>
     <p>${esc(e.snippet)} This is a demo body. In a real client the full thread would render here.</p>`;
   renderList();
 }
@@ -213,29 +210,19 @@ function closeReader() {
   $('#main').classList.remove('hidden');
 }
 
-/* ---------- Delete with undo ---------- */
+/* ---------- Delete: permanent, with 10s undo ---------- */
 function deleteEmail(id) {
   const e = state.emails.find((x) => x.id === id);
   if (!e) return;
   const idx = state.emails.indexOf(e);
   const snapshot = { ...e };
   state.emails.splice(idx, 1);
-  e.folder = 'Trash';
+  if (state.readerId === id) closeReader();
   renderAll();
   toast('Deleted', () => {
-    state.emails.splice(idx, 0, snapshot);
-    snapshot.folder = state.folder === 'Trash' ? 'Inbox' : snapshot.folder;
+    state.emails.splice(Math.min(idx, state.emails.length), 0, snapshot);
     renderAll();
   });
-}
-
-/* ---------- Follow-up ---------- */
-function toggleFollowUp(id) {
-  const e = state.emails.find((x) => x.id === id);
-  if (!e) return;
-  e.followUp = !e.followUp;
-  toast(e.followUp ? 'Will reappear if no answer arrives' : 'Follow-up removed');
-  renderAll();
 }
 
 /* ---------- Swipe gestures (mobile) ---------- */
@@ -258,7 +245,7 @@ function bindSwipe(row, email) {
     swiping = false;
     row.style.transform = '';
     row.style.background = '';
-    if (dx < -60) deleteEmail(email.id);          // swipe left = delete
+    if (dx < -60) deleteEmail(email.id);          // swipe left = delete permanently
     else if (dx > 60) moveToFolder(email.id);      // swipe right = move to folder
   });
 }
@@ -271,10 +258,7 @@ function moveToFolder(id) {
 
 /* ---------- Keyboard shortcuts ---------- */
 document.addEventListener('keydown', (ev) => {
-  if (ev.target.matches('input, [contenteditable]')) {
-    if ((ev.metaKey || ev.ctrlKey) && ev.key === 'z') return; // let native undo work in fields
-    return;
-  }
+  if (ev.target.matches('input, [contenteditable]')) return;
   const items = state.emails.filter((e) => e.folder === state.folder);
   const current = items.findIndex((e) => e.id === state.selectedId);
   switch (ev.key) {
@@ -282,9 +266,14 @@ document.addEventListener('keydown', (ev) => {
       ev.preventDefault();
       if (state.readerId) deleteEmail(state.readerId);
       else if (current >= 0) deleteEmail(items[current].id);
+      else {
+        const pre = items.filter((e) => e._preselected);
+        pre.forEach((e) => deleteEmail(e.id));
+      }
       break;
     case 'Enter':
-      if (current >= 0) openReader(items[current].id);
+      if (state.readerId) openComposeReply();
+      else if (current >= 0) openReader(items[current].id);
       break;
     case 'ArrowDown':
       ev.preventDefault();
@@ -298,7 +287,8 @@ document.addEventListener('keydown', (ev) => {
       break;
     case ' ':
       ev.preventDefault();
-      openCompose();
+      if (state.readerId) openComposeReply();
+      else openCompose();
       break;
     case 'Escape':
       closeReader(); closeCompose(); closeSettings();
@@ -307,7 +297,22 @@ document.addEventListener('keydown', (ev) => {
 });
 
 /* ---------- Compose + inline AI ---------- */
-function openCompose() { $('#composeModal').classList.remove('hidden'); $('#cTo').focus(); }
+function openCompose(to = '', subject = '') {
+  $('#cTo').value = to;
+  $('#cSubject').value = subject;
+  $('#cBody').innerText = '';
+  $('#composeWarnings').innerHTML = '';
+  $('#aiStatus').textContent = '';
+  state._attachmentAdded = false;
+  $('#composeModal').classList.remove('hidden');
+  $('#cTo').focus();
+}
+function openComposeReply() {
+  const e = state.emails.find((x) => x.id === state.readerId);
+  if (!e) return;
+  const subject = e.subject.startsWith('Re:') ? e.subject : `Re: ${e.subject}`;
+  openCompose(e.sender, subject);
+}
 function closeCompose() { $('#composeModal').classList.add('hidden'); }
 
 function hasSignature(text) {
@@ -358,21 +363,28 @@ function sendEmail() {
   const to = $('#cTo').value.trim();
   const subject = $('#cSubject').value.trim() || '(no subject)';
   if (!to) { toast('Add a recipient first'); return; }
-  state.emails.unshift({
-    id: 'e' + Date.now(), account: 'pro', folder: 'Sent',
-    sender: 'me@pro-company.com', subject,
+  const account = state.accounts.find((a) => a.id === 'pro') || state.accounts[0];
+  const sent = {
+    id: 'e' + Date.now(), account: account.id, folder: 'Sent',
+    sender: account.label, subject,
     snippet: $('#cBody').innerText.slice(0, 80),
-    date: new Date().toISOString(), unread: false, followUp: false, garbage: false, opened: false,
-  });
+    date: new Date().toISOString(), unread: false,
+    followUp: true, // automatic: reappears in follow-ups if no answer arrives
+    garbage: false, opened: false,
+  };
+  state.emails.unshift(sent);
   closeCompose();
-  $('#cTo').value = ''; $('#cSubject').value = ''; $('#cBody').innerText = '';
   renderAll();
-  toast('Sent');
+  toast('Sent — follow-up armed automatically (reappears if no answer)');
 }
 
 /* ---------- Settings ---------- */
 function openSettings() { renderSettings(); $('#settingsModal').classList.remove('hidden'); }
 function closeSettings() { $('#settingsModal').classList.add('hidden'); }
+
+function switchHtml(id, checked) {
+  return `<label class="switch"><input type="checkbox" id="${id}" ${checked ? 'checked' : ''}><span class="slider"></span></label>`;
+}
 
 function renderSettings() {
   const body = $('#settingsBody');
@@ -384,17 +396,69 @@ function renderSettings() {
     body.appendChild(d);
     return d;
   };
-  row('AI model API key (any provider)', `<input type="password" id="setApiKey" placeholder="sk-…" value="${esc(state.settings.aiApiKey)}">`).querySelector('input').onchange = (e) => { state.settings.aiApiKey = e.target.value; };
-  row('AI garbage preselection', `<input type="checkbox" id="setGarbage" ${state.settings.garbageDetection ? 'checked' : ''}>`).querySelector('input').onchange = (e) => { state.settings.garbageDetection = e.target.checked; };
-  row('Read receipts (know when opened)', `<input type="checkbox" id="setReceipts" ${state.settings.readReceipts ? 'checked' : ''}>`).querySelector('input').onchange = (e) => { state.settings.readReceipts = e.target.checked; };
-  ACCOUNTS.forEach((a) => {
-    const d = row(`Notification sound — ${a.label}`, `<select id="snd-${a.id}">
+
+  body.insertAdjacentHTML('beforeend', '<div class="set-section-title">Accounts</div>');
+  state.accounts.forEach((a) => {
+    const d = document.createElement('div');
+    d.className = 'acct-row';
+    d.innerHTML = `<span class="badge" style="background:${a.color}"></span>
+      <span class="label">${esc(a.label)}</span><span class="type">${esc(a.type)}</span>`;
+    const rm = document.createElement('button');
+    rm.className = 'remove';
+    rm.textContent = '×';
+    rm.title = `Remove ${a.label}`;
+    rm.onclick = () => {
+      if (state.accounts.length <= 1) { toast('You need at least one account'); return; }
+      state.accounts = state.accounts.filter((x) => x.id !== a.id);
+      saveAccounts();
+      renderSettings();
+      toast(`Removed ${a.label}`);
+    };
+    d.appendChild(rm);
+    body.appendChild(d);
+  });
+  const addDiv = document.createElement('div');
+  addDiv.className = 'add-acct';
+  addDiv.innerHTML = `
+    <input type="text" id="newAcctEmail" placeholder="email address">
+    <select id="newAcctType">
+      <option value="gmail">Gmail</option>
+      <option value="smtp">SMTP</option>
+    </select>
+    <button class="ghost-btn" id="addAcctBtn">Add</button>`;
+  body.appendChild(addDiv);
+  addDiv.querySelector('#addAcctBtn').onclick = () => {
+    const email = addDiv.querySelector('#newAcctEmail').value.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('Enter a valid email address'); return; }
+    const type = addDiv.querySelector('#newAcctType').value;
+    const palette = ['#5b5bf0', '#4285F4', '#34A853', '#EA4335', '#b9770e', '#0e9f8a'];
+    state.accounts.push({
+      id: 'a' + Date.now(), label: email, type,
+      color: palette[state.accounts.length % palette.length], sound: 'default',
+    });
+    saveAccounts();
+    renderSettings();
+    toast(`Added ${email}`);
+  };
+
+  body.insertAdjacentHTML('beforeend', '<div class="set-section-title">AI</div>');
+  row('AI model API key (any provider)', `<input type="password" id="setApiKey" placeholder="sk-…" value="${esc(state.settings.aiApiKey)}">`)
+    .querySelector('input').onchange = (e) => { state.settings.aiApiKey = e.target.value; };
+  row('AI garbage preselection', switchHtml('setGarbage', state.settings.garbageDetection))
+    .querySelector('input').onchange = (e) => { state.settings.garbageDetection = e.target.checked; };
+  row('Read receipts (know when opened)', switchHtml('setReceipts', state.settings.readReceipts))
+    .querySelector('input').onchange = (e) => { state.settings.readReceipts = e.target.checked; };
+
+  body.insertAdjacentHTML('beforeend', '<div class="set-section-title">Notifications</div>');
+  state.accounts.forEach((a) => {
+    const d = row(`Sound — ${a.label}`, `<select id="snd-${a.id}">
       <option value="default" ${a.sound === 'default' ? 'selected' : ''}>Default</option>
       <option value="pro" ${a.sound === 'pro' ? 'selected' : ''}>Pro (distinct)</option>
       <option value="soft" ${a.sound === 'soft' ? 'selected' : ''}>Soft</option>
     </select>`);
-    d.querySelector('select').onchange = (e) => { a.sound = e.target.value; };
+    d.querySelector('select').onchange = (e) => { a.sound = e.target.value; saveAccounts(); };
   });
+
   const hiddenNote = document.createElement('div');
   hiddenNote.className = 'set-note';
   hiddenNote.innerHTML = `Hidden folders: ${state.hiddenFolders.map(esc).join(', ') || 'none'} — hover a folder in the sidebar and click × to hide it totally.`;
@@ -402,9 +466,9 @@ function renderSettings() {
 }
 
 /* ---------- Wire up ---------- */
-function renderAll() { renderFolders(); renderAccounts(); renderList(); }
+function renderAll() { renderFolders(); renderList(); }
 
-$('#composeBtn').onclick = openCompose;
+$('#composeBtn').onclick = () => openCompose();
 $('#closeCompose').onclick = closeCompose;
 $('#sendBtn').onclick = sendEmail;
 $('#aiBtn').onclick = runAIRefine;
@@ -414,7 +478,7 @@ $('#settingsBtn').onclick = openSettings;
 $('#closeSettings').onclick = closeSettings;
 $('#backBtn').onclick = closeReader;
 $('#deleteBtn').onclick = () => state.readerId && deleteEmail(state.readerId);
-$('#followupBtn').onclick = () => state.readerId && toggleFollowUp(state.readerId);
+$('#replyBtn').onclick = openComposeReply;
 
 seedEmails();
 renderAll();
