@@ -8,6 +8,7 @@ const DEFAULT_ACCOUNTS = [
   { id: 'pro', label: 'me@pro-company.com', type: 'smtp', color: '#5b5bf0', sound: 'pro' },
 ];
 const ACCOUNTS_KEY = 'mono.accounts';
+const EMAILS_KEY = 'mono.emails';
 const HIDDEN_FOLDERS_KEY = 'mono.hiddenFolders';
 
 const DEFAULT_FOLDERS = ['Inbox', 'Sent', 'Junk'];
@@ -26,6 +27,17 @@ const state = {
   },
 };
 
+function loadEmails() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(EMAILS_KEY) || 'null');
+    if (Array.isArray(saved)) return saved;
+  } catch (e) { /* fall through */ }
+  return null;
+}
+function saveEmails() {
+  localStorage.setItem(EMAILS_KEY, JSON.stringify(state.emails));
+}
+
 function loadAccounts() {
   try {
     const saved = JSON.parse(localStorage.getItem(ACCOUNTS_KEY) || 'null');
@@ -43,7 +55,7 @@ function seedEmails() {
     date: new Date(Date.now() - hoursAgo * 3600e3).toISOString(),
     unread: true, followUp: false, garbage: false, opened: false, ...opts,
   });
-  state.emails = [
+  state.emails = loadEmails() || [
     mk('e1', 'pro', 'Inbox', 'Client Corp', 'Contract signature needed', 'Hi, please review the attached contract and sign before Friday…', 1),
     mk('e2', 'gmail1', 'Inbox', 'Newsletter Weekly', '50% off everything this week', 'Deals deals deals — unsubscribe anytime.', 3, { garbage: true }),
     mk('e3', 'gmail2', 'Inbox', 'Mom', 'Dinner on Sunday?', 'Are you coming for lunch this Sunday? Let me know!', 5),
@@ -54,6 +66,7 @@ function seedEmails() {
     mk('e8', 'gmail1', 'Sent', 'Mom', 'Re: Dinner on Sunday?', 'Yes, see you at noon!', 6, { unread: false }),
     mk('e9', 'gmail2', 'Junk', 'Casino Ads', 'Play now and win big', 'Limited time offer.', 20),
   ];
+  saveEmails();
 }
 
 /* ---------- Helpers ---------- */
@@ -89,6 +102,19 @@ function toast(msg, undoFn) {
 }
 
 /* ---------- Render: sidebar ---------- */
+function renderAccounts() {
+  const el = $('#accountList');
+  if (!el) return;
+  el.innerHTML = '';
+  state.accounts.forEach((a) => {
+    const div = document.createElement('div');
+    div.className = 'account';
+    div.innerHTML = `<span class="badge" style="background:${a.color}"></span><span class="acct-label">${esc(a.label)}</span>`;
+    div.title = `${a.label} (${a.type}) — manage in Settings`;
+    el.appendChild(div);
+  });
+}
+
 function renderFolders() {
   const nav = $('#folderNav');
   nav.innerHTML = '';
@@ -217,10 +243,12 @@ function deleteEmail(id) {
   const idx = state.emails.indexOf(e);
   const snapshot = { ...e };
   state.emails.splice(idx, 1);
+  saveEmails();
   if (state.readerId === id) closeReader();
   renderAll();
   toast('Deleted', () => {
     state.emails.splice(Math.min(idx, state.emails.length), 0, snapshot);
+    saveEmails();
     renderAll();
   });
 }
@@ -373,6 +401,7 @@ function sendEmail() {
     garbage: false, opened: false,
   };
   state.emails.unshift(sent);
+  saveEmails();
   closeCompose();
   renderAll();
   toast('Sent — follow-up armed automatically (reappears if no answer)');
@@ -463,10 +492,18 @@ function renderSettings() {
   hiddenNote.className = 'set-note';
   hiddenNote.innerHTML = `Hidden folders: ${state.hiddenFolders.map(esc).join(', ') || 'none'} — hover a folder in the sidebar and click × to hide it totally.`;
   body.appendChild(hiddenNote);
+  const resetRow = row('Demo data', `<button class="ghost-btn" id="resetEmails">Reset inbox</button>`);
+  resetRow.querySelector('button').onclick = () => {
+    localStorage.removeItem(EMAILS_KEY);
+    seedEmails();
+    renderAll();
+    renderSettings();
+    toast('Inbox restored to demo data');
+  };
 }
 
 /* ---------- Wire up ---------- */
-function renderAll() { renderFolders(); renderList(); }
+function renderAll() { renderFolders(); renderAccounts(); renderList(); }
 
 $('#composeBtn').onclick = () => openCompose();
 $('#closeCompose').onclick = closeCompose;

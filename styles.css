@@ -57,6 +57,19 @@ body {
 }
 .folder:hover .hide-x { visibility: visible; }
 .folder .hide-x:hover { color: #fff; }
+.sidebar-section { margin-top: auto; }
+.sidebar-section .section-title {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.09em;
+  color: #8a8a96; margin-bottom: 4px; padding: 0 10px; font-weight: 700;
+}
+.account {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 10px; border-radius: 8px; font-size: 12px; color: #b9b9c3;
+  cursor: default;
+}
+.account:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
+.account .badge { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.account .acct-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #settingsBtn {
   margin-top: auto;
   background: rgba(255, 255, 255, 0.08); border: none; color: #d5d5de;
