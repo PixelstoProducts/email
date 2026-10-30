@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mono — minimal unified inbox</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+
+  <aside id="sidebar">
+    <div class="brand">mono<span class="dot">.</span></div>
+    <button id="composeBtn" class="compose">+ Compose</button>
+    <nav id="folderNav"></nav>
+    <div class="sidebar-section">
+      <div class="section-title">Accounts</div>
+      <div id="accountList"></div>
+    </div>
+    <button id="settingsBtn" class="ghost-btn">Settings</button>
+  </aside>
+
+  <main id="main">
+    <header id="toolbar">
+      <div id="folderTitle">Inbox</div>
+      <div id="toolbarActions"></div>
+    </header>
+    <div id="emailList"></div>
+    <div id="emptyState" class="hidden"></div>
+  </main>
+
+  <section id="reader" class="hidden">
+    <div class="reader-head">
+      <button id="backBtn" class="ghost-btn">&larr; Back</button>
+      <div class="reader-actions">
+        <button id="followupBtn" class="ghost-btn" title="Reappear if no answer">Follow-up</button>
+        <button id="deleteBtn" class="ghost-btn danger">Delete</button>
+      </div>
+    </div>
+    <div id="readerBody"></div>
+  </section>
+
+  <div id="composeModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <span>New message</span>
+        <button id="closeCompose" class="ghost-btn">&times;</button>
+      </div>
+      <input id="cTo" placeholder="To">
+      <input id="cSubject" placeholder="Subject">
+      <div id="cBody" class="cbody" contenteditable="true" data-placeholder="Write here — select text to refine with AI, or leave unselected to rewrite the whole message"></div>
+      <div class="compose-bar">
+        <button id="aiBtn" class="ghost-btn">AI refine</button>
+        <button id="attachBtn" class="ghost-btn">Attach</button>
+        <span id="aiStatus"></span>
+        <button id="sendBtn" class="compose">Send</button>
+      </div>
+      <div id="composeWarnings"></div>
+    </div>
+  </div>
+
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <span>Settings</span>
+        <button id="closeSettings" class="ghost-btn">&times;</button>
+      </div>
+      <div id="settingsBody"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="hidden"></div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
