@@ -5,7 +5,7 @@
 <script>
   const q = new URLSearchParams(location.search);
   if (window.opener) {
-    window.opener.postMessage({ code: q.get('code'), state: q.get('state') }, 'http://localhost:8484');
+    window.opener.postMessage({ code: q.get('code'), state: q.get('state') }, location.origin);
   }
   document.body.textContent = 'Authentication complete — you can close this tab.';
 </script>

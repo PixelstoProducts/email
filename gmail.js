@@ -26,7 +26,7 @@ const gmail = {
     const verifier = this._b64url(crypto.getRandomValues(new Uint8Array(32)));
     const challenge = this._b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
     const state = this._b64url(crypto.getRandomValues(new Uint8Array(16))) + ':' + accountId;
-    const redirect = 'http://localhost:8484/callback.html';
+    const redirect = new URL('callback.html', location.href).href;
     const url = 'https://accounts.google.com/o/oauth2/v2/auth' +
       '?client_id=' + encodeURIComponent(this.clientId) +
       '&redirect_uri=' + encodeURIComponent(redirect) +
@@ -36,7 +36,7 @@ const gmail = {
     const win = window.open(url, 'gmail-auth', 'width=520,height=640');
     return new Promise((resolve, reject) => {
       const handler = async (ev) => {
-        if (ev.origin !== 'http://localhost:8484') return;
+        if (ev.origin !== location.origin) return;
         const data = ev.data || {};
         if (!data.code) return;
         window.removeEventListener('message', handler);

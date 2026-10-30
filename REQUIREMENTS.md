@@ -101,7 +101,7 @@ Purpose: hand-off brief for a design review / alternative proposal. Section 1 re
 ### 5.1 Real Google connection (receive + send)
 - Gmail API with **OAuth 2.0** (not IMAP scraping, not app passwords)
   - Scopes: `gmail.readonly` (receive), `gmail.send` (send), `gmail.modify` (archive / mark read server-side)
-  - Auth: OAuth consent screen + **PKCE** (client-side flow works for desktop apps without a server); refresh token stored in **Keychain** on macOS/iOS — never in repo or localStorage in production
+  - Auth: OAuth consent screen + **PKCE**; redirect URI is derived from `location.origin`, so it works both hosted (`https://pixelstoproducts.github.io/email/callback.html`) and locally (`http://localhost:8484/callback.html`) — register **both** in the Google Cloud console; refresh token stored in **Keychain** on macOS/iOS — never in repo or localStorage in production
   - Receive: `users.messages.list` + `users.messages.get`; live updates via `users.watch` + Cloud Pub/Sub push (poll fallback)
   - Send: `users.messages.send` with raw RFC 2822 MIME (base64url) — no SMTP needed for Gmail accounts
 - Pro account stays on **SMTP/IMAP (Hostinger)** with its own credentials
