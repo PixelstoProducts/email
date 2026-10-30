@@ -95,3 +95,27 @@ Purpose: hand-off brief for a design review / alternative proposal. Section 1 re
 3. Where do ✦ AI actions (summarize / explain / expand) belong in the reader view?
 4. Badges: keep as pills in the row meta (current) or integrate status into the subject line?
 5. Account switching: keep accounts out of the nav entirely (current) or a minimal avatar menu?
+
+## 5. Next phase — real connections & native apps
+
+### 5.1 Real Google connection (receive + send)
+- Gmail API with **OAuth 2.0** (not IMAP scraping, not app passwords)
+  - Scopes: `gmail.readonly` (receive), `gmail.send` (send), `gmail.modify` (archive / mark read server-side)
+  - Auth: OAuth consent screen + **PKCE** (client-side flow works for desktop apps without a server); refresh token stored in **Keychain** on macOS/iOS — never in repo or localStorage in production
+  - Receive: `users.messages.list` + `users.messages.get`; live updates via `users.watch` + Cloud Pub/Sub push (poll fallback)
+  - Send: `users.messages.send` with raw RFC 2822 MIME (base64url) — no SMTP needed for Gmail accounts
+- Pro account stays on **SMTP/IMAP (Hostinger)** with its own credentials
+- Architecture: a **mail-adapter interface** with two implementations — `gmail-api` and `smtp-imap` — so the UI is unchanged
+
+### 5.2 iOS + macOS app, light to download
+- Avoid Electron (too heavy). Options:
+  - **Tauri** (Rust core + webview, ~5–15 MB): reuses this web UI almost as-is; one codebase for both platforms
+  - **Native Swift**: one Xcode project with macOS + iOS targets sharing a Swift core package (~10–20 MB), Gmail via GoogleSignIn SDK, IMAP/SMTP via native libs — best Apple feel, App Store distribution
+  - Flutter (~15–25 MB): one codebase, heavier UI rewrite
+- Both wrap the same mail-adapter interface; AI stays pluggable behind the user's API key
+- Sequencing: (1) adapter-based architecture in web prototype, (2) real Gmail OAuth receive/send, (3) port to Tauri or Swift with the adapter intact
+
+### 5.3 Implemented in this phase
+- `gmail.js`: Gmail adapter — PKCE OAuth sign-in (client_id + redirect via `http://localhost` or loopback), token refresh, `messages.list`/`get`/`send`, message mapping to the app model
+- Demo mode remains the default; "Connect" per Gmail account in Settings switches that account to live data
+- SMTP/IMAP adapter is a documented stub (needs a backend or native lib for credentials)

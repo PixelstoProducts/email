@@ -24,6 +24,7 @@ const state = {
     aiApiKey: '',
     garbageDetection: true,
     readReceipts: true,
+    googleClientId: localStorage.getItem('mono.googleClientId') || '',
   },
 };
 
@@ -427,6 +428,11 @@ function sendEmail() {
   const subject = $('#cSubject').value.trim() || '(no subject)';
   if (!to) { toast('Add a recipient first'); return; }
   const account = state.accounts.find((a) => a.id === 'pro') || state.accounts[0];
+  if (account.type === 'gmail' && gmail.isConnected(account.id)) {
+    gmail.send(account.id, { to, subject, body: $('#cBody').innerText })
+      .then(() => { closeCompose(); renderAll(); toast('Sent via Gmail — follow-up armed automatically'); })
+      .catch((err) => toast('Gmail send failed: ' + err.message));
+  }
   const sent = {
     id: 'e' + Date.now(), account: account.id, folder: 'Outbox',
     sender: account.label, subject,
@@ -450,6 +456,17 @@ function switchHtml(id, checked) {
   return `<label class="switch"><input type="checkbox" id="${id}" ${checked ? 'checked' : ''}><span class="slider"></span></label>`;
 }
 
+function removeAccount(id) {
+  if (state.accounts.length <= 1) { toast('You need at least one account'); return; }
+  const a = state.accounts.find((x) => x.id === id);
+  state.accounts = state.accounts.filter((x) => x.id !== id);
+  delete gmail.tokens[id];
+  gmail._save();
+  saveAccounts();
+  renderSettings();
+  toast(`Removed ${a ? a.label : id}`);
+}
+
 function renderSettings() {
   const body = $('#settingsBody');
   body.innerHTML = '';
@@ -471,13 +488,37 @@ function renderSettings() {
     rm.className = 'remove';
     rm.textContent = '×';
     rm.title = `Remove ${a.label}`;
-    rm.onclick = () => {
-      if (state.accounts.length <= 1) { toast('You need at least one account'); return; }
-      state.accounts = state.accounts.filter((x) => x.id !== a.id);
-      saveAccounts();
-      renderSettings();
-      toast(`Removed ${a.label}`);
-    };
+    rm.onclick = () => removeAccount(a.id);
+    if (a.type === 'gmail') {
+      const conn = document.createElement('button');
+      conn.className = 'ghost-btn';
+      const connected = gmail.isConnected(a.id);
+      conn.textContent = connected ? 'Connected ✓' : 'Connect';
+      conn.style.marginLeft = 'auto';
+      conn.onclick = async () => {
+        try {
+          if (connected) {
+            delete gmail.tokens[a.id];
+            gmail._save();
+            renderSettings();
+            toast(`Disconnected ${a.label}`);
+          } else {
+            conn.textContent = 'Authorizing…';
+            await gmail.connect(a.id, state.settings.googleClientId);
+            const live = await gmail.listMessages(a.id, { max: 30 });
+            state.emails = state.emails.filter((e) => e.account !== a.id).concat(live);
+            saveEmails();
+            renderAll();
+            renderSettings();
+            toast(`Connected ${a.label} — loaded ${live.length} live emails`);
+          }
+        } catch (err) { toast('Gmail: ' + err.message); renderSettings(); }
+      };
+      d.appendChild(conn);
+      rm.style.marginLeft = '0';
+    } else {
+      rm.style.marginLeft = 'auto';
+    }
     d.appendChild(rm);
     body.appendChild(d);
   });
@@ -508,6 +549,13 @@ function renderSettings() {
   body.insertAdjacentHTML('beforeend', '<div class="set-section-title">AI</div>');
   row('AI model API key (any provider)', `<input type="password" id="setApiKey" placeholder="sk-…" value="${esc(state.settings.aiApiKey)}">`)
     .querySelector('input').onchange = (e) => { state.settings.aiApiKey = e.target.value; };
+  row('Google OAuth client ID (Gmail connect)', `<input type="text" id="setGClientId" placeholder="…apps.googleusercontent.com" value="${esc(state.settings.googleClientId)}">`)
+    .querySelector('input').onchange = (e) => {
+      state.settings.googleClientId = e.target.value.trim();
+      localStorage.setItem('mono.googleClientId', state.settings.googleClientId);
+      gmail.configure(state.settings.googleClientId);
+    };
+  gmail.configure(state.settings.googleClientId);
   row('AI garbage preselection', switchHtml('setGarbage', state.settings.garbageDetection))
     .querySelector('input').onchange = (e) => { state.settings.garbageDetection = e.target.checked; };
   row('Read receipts (know when opened)', switchHtml('setReceipts', state.settings.readReceipts))
