@@ -12,6 +12,7 @@ const EMAILS_KEY = 'mono.emails';
 const HIDDEN_FOLDERS_KEY = 'mono.hiddenFolders';
 
 const DEFAULT_FOLDERS = ['Inbox', 'Outbox', 'Junk'];
+const CORE_FOLDERS = ['Inbox', 'Outbox', 'Junk']; // cannot be hidden
 
 const state = {
   accounts: loadAccounts(),
@@ -119,18 +120,21 @@ function renderFolders() {
     const div = document.createElement('div');
     div.className = 'folder' + (state.folder === f ? ' active' : '');
     div.innerHTML = `<span class="label">${esc(f)}</span><span class="count${count > 0 ? ' has-unread' : ''}">${count > 0 ? count : ''}</span>`;
-    const x = document.createElement('button');
-    x.className = 'hide-x';
-    x.textContent = '×';
-    x.title = `Hide ${f} completely`;
-    x.onclick = (ev) => { ev.stopPropagation(); hideFolder(f); };
-    div.appendChild(x);
+    if (!CORE_FOLDERS.includes(f)) {
+      const x = document.createElement('button');
+      x.className = 'hide-x';
+      x.textContent = '×';
+      x.title = `Hide ${f} completely`;
+      x.onclick = (ev) => { ev.stopPropagation(); hideFolder(f); };
+      div.appendChild(x);
+    }
     div.onclick = () => { state.folder = f; state.readerId = null; closeReader(); renderAll(); };
     nav.appendChild(div);
   });
 }
 
 function hideFolder(f) {
+  if (CORE_FOLDERS.includes(f)) return;
   state.hiddenFolders.push(f);
   localStorage.setItem(HIDDEN_FOLDERS_KEY, JSON.stringify(state.hiddenFolders));
   if (state.folder === f) state.folder = 'Inbox';
