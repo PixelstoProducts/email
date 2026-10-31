@@ -109,10 +109,16 @@ function renderFolders() {
   const nav = $('#folderNav');
   nav.innerHTML = '';
   visibleFolders().forEach((f) => {
-    const count = state.emails.filter((e) => e.folder === f).length;
+    const inFolder = state.emails.filter((e) => e.folder === f);
+    // notification-style counts: Inbox -> unread, Outbox -> drafts + follow-ups, others -> total
+    const count = f === 'Inbox'
+      ? inFolder.filter((e) => e.unread).length
+      : f === 'Outbox'
+        ? inFolder.filter((e) => e.status === 'draft' || e.followUp).length
+        : inFolder.length;
     const div = document.createElement('div');
     div.className = 'folder' + (state.folder === f ? ' active' : '');
-    div.innerHTML = `<span class="label">${esc(f)}</span><span class="count">${count}</span>`;
+    div.innerHTML = `<span class="label">${esc(f)}</span><span class="count${count > 0 ? ' has-unread' : ''}">${count > 0 ? count : ''}</span>`;
     const x = document.createElement('button');
     x.className = 'hide-x';
     x.textContent = '×';

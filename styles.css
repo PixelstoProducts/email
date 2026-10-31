@@ -49,8 +49,17 @@ body {
 }
 .folder:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
 .folder.active { background: rgba(91, 91, 240, 0.22); color: #fff; font-weight: 600; }
-.folder .count { color: #8a8a96; font-size: 12px; font-weight: 500; }
+.folder .count {
+  color: #8a8a96; font-size: 12px; font-weight: 500;
+  min-width: 20px; text-align: right; margin-left: auto;
+}
+.folder .count.has-unread {
+  background: var(--accent); color: #fff;
+  border-radius: 20px; padding: 1px 7px; text-align: center;
+  font-size: 11px; font-weight: 700; min-width: 20px;
+}
 .folder.active .count { color: #c9c9ff; }
+.folder.active .count.has-unread { background: var(--accent); color: #fff; }
 .folder .hide-x {
   visibility: hidden; border: none; background: none; color: #8a8a96;
   cursor: pointer; font-size: 14px; padding: 0 2px; line-height: 1;
